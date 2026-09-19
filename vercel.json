@@ -1,0 +1,52 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "services": {
+    "web": {
+      "root": ".",
+      "buildCommand": "vite build",
+      "outputDirectory": "dist"
+    },
+    "ner-landslide-api": {
+      "root": "backend",
+      "entrypoint": "main:app",
+      "buildCommand": "pip install -r requirements.txt"
+    }
+  },
+  "rewrites": [
+    {
+      "source": "/api/(.*)",
+      "destination": {
+        "type": "service",
+        "service": "ner-landslide-api"
+      }
+    },
+    {
+      "source": "/health",
+      "destination": {
+        "type": "service",
+        "service": "ner-landslide-api"
+      }
+    },
+    {
+      "source": "/docs",
+      "destination": {
+        "type": "service",
+        "service": "ner-landslide-api"
+      }
+    },
+    {
+      "source": "/openapi.json",
+      "destination": {
+        "type": "service",
+        "service": "ner-landslide-api"
+      }
+    },
+    {
+      "source": "/(.*)",
+      "destination": {
+        "type": "service",
+        "service": "web"
+      }
+    }
+  ]
+}
