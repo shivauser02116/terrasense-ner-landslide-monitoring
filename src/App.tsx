@@ -557,8 +557,10 @@ function ZoneMap({
             <TileLayer
               key="satellite-base"
               url={TILE_SATELLITE}
-              attribution='&copy; <a href="https://carto.com/attributions">CARTO</a> &copy; Esri &copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+              attribution='&copy; <a href="https://www.esri.com/">Esri</a> &copy; <a href="https://carto.com/attributions">CARTO</a> &copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
               maxZoom={19}
+              maxNativeZoom={18}
+              zIndex={1}
             />
             <TileLayer
               key="satellite-labels"
@@ -566,6 +568,7 @@ function ZoneMap({
               attribution={TILE_ATTRIBUTION}
               subdomains="abcd"
               maxZoom={19}
+              zIndex={2}
             />
           </>
         )}
