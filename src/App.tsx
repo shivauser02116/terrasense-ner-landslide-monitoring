@@ -111,8 +111,9 @@ const CARTO_KEY: string = import.meta.env.VITE_CARTO_API_KEY ?? ""
 const CARTO_KEY_PARAM = CARTO_KEY ? `?key=${CARTO_KEY}` : ""
 
 const TILE_STREET = `https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png${CARTO_KEY_PARAM}`
-const TILE_SATELLITE = `https://{s}.basemaps.cartocdn.com/rastertiles/satellite/{z}/{x}/{y}{r}.png${CARTO_KEY_PARAM}`
-const TILE_ATTRIBUTION = '\u0026copy; \u003ca href="https://www.openstreetmap.org/copyright"\u003eOpenStreetMap\u003c/a\u003e \u0026copy; \u003ca href="https://carto.com/attributions"\u003eCARTO\u003c/a\u003e'
+const TILE_SATELLITE = "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"
+const TILE_SATELLITE_LABELS = `https://{s}.basemaps.cartocdn.com/rastertiles/voyager_only_labels/{z}/{x}/{y}{r}.png${CARTO_KEY_PARAM}`
+const TILE_ATTRIBUTION = '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/attributions">CARTO</a>'
 
 
 // ─── Monitoring zone data — 18 zones across 8 NER states ─────────────────────
@@ -543,13 +544,31 @@ function ZoneMap({
         zoomControl={true}
         attributionControl={true}
       >
-        <TileLayer
-          key={basemap}
-          url={basemap === "satellite" ? TILE_SATELLITE : TILE_STREET}
-          attribution={TILE_ATTRIBUTION}
-          subdomains="abcd"
-          maxZoom={19}
-        />
+        {basemap === "street" ? (
+          <TileLayer
+            key="street"
+            url={TILE_STREET}
+            attribution={TILE_ATTRIBUTION}
+            subdomains="abcd"
+            maxZoom={19}
+          />
+        ) : (
+          <>
+            <TileLayer
+              key="satellite-base"
+              url={TILE_SATELLITE}
+              attribution='&copy; <a href="https://carto.com/attributions">CARTO</a> &copy; Esri &copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+              maxZoom={19}
+            />
+            <TileLayer
+              key="satellite-labels"
+              url={TILE_SATELLITE_LABELS}
+              attribution={TILE_ATTRIBUTION}
+              subdomains="abcd"
+              maxZoom={19}
+            />
+          </>
+        )}
 
         <GeoJSON
           data={NER_BOUNDARY_GEOJSON}
