@@ -2,6 +2,7 @@ from fastapi import APIRouter, HTTPException
 from typing import Optional
 
 from firebase_admin_setup import get_db
+from zone_data import ZONES as STATIC_ZONES, RISK_ORDER
 
 router = APIRouter(prefix="/api", tags=["zones"])
 
@@ -9,46 +10,56 @@ router = APIRouter(prefix="/api", tags=["zones"])
 @router.get("/zones")
 async def get_zones(state: Optional[str] = None):
     """
-    Return all monitoring zones from Firestore.
-    Optionally filter by state name.
-    Falls back to empty list if Firestore not configured.
+    Return all monitoring zones.
+    Tries Firestore first; falls back to static in-memory NER zone data
+    when Firebase is not configured (no credentials present).
     """
     db = get_db()
-    if not db:
-        return {"zones": [], "source": "firestore_unavailable", "message": "Firebase not configured"}
+    if db:
+        query = db.collection("monitoring_zones")
+        if state:
+            query = query.where("state", "==", state)
 
-    query = db.collection("monitoring_zones")
-    if state:
-        query = query.where("state", "==", state)
+        docs = query.stream()
+        zones = []
+        for doc in docs:
+            z = doc.to_dict()
+            z["id"] = doc.id
+            zones.append(z)
 
-    docs = query.stream()
+        if zones:
+            zones.sort(key=lambda z: RISK_ORDER.get(z.get("current_risk_level", "low"), 3))
+            return {"zones": zones, "count": len(zones), "source": "firestore"}
+
+    # Fallback: serve static in-memory NER zone dataset
     zones = []
-    for doc in docs:
-        z = doc.to_dict()
-        z["id"] = doc.id
-        zones.append(z)
+    for z in STATIC_ZONES:
+        zone = dict(z)  # shallow copy so we don't mutate the source
+        if state and zone.get("state", "").lower() != state.lower():
+            continue
+        zones.append(zone)
 
-    # Sort by risk severity
-    risk_order = {"critical": 0, "high": 1, "moderate": 2, "low": 3}
-    zones.sort(key=lambda z: risk_order.get(z.get("current_risk_level", "low"), 3))
-
-    return {"zones": zones, "count": len(zones), "source": "firestore"}
+    zones.sort(key=lambda z: RISK_ORDER.get(z.get("current_risk_level", "low"), 3))
+    return {"zones": zones, "count": len(zones), "source": "static_fallback"}
 
 
 @router.get("/zones/{zone_id}")
 async def get_zone(zone_id: str):
-    """Return a single monitoring zone by ID."""
+    """Return a single monitoring zone by ID. Tries Firestore, falls back to static data."""
     db = get_db()
-    if not db:
-        raise HTTPException(status_code=503, detail="Firebase not configured")
+    if db:
+        doc = db.collection("monitoring_zones").document(zone_id).get()
+        if doc.exists:
+            data = doc.to_dict()
+            data["id"] = doc.id
+            return data
 
-    doc = db.collection("monitoring_zones").document(zone_id).get()
-    if not doc.exists:
-        raise HTTPException(status_code=404, detail=f"Zone '{zone_id}' not found")
+    # Fallback to static data
+    for z in STATIC_ZONES:
+        if z["id"] == zone_id:
+            return dict(z)
 
-    data = doc.to_dict()
-    data["id"] = doc.id
-    return data
+    raise HTTPException(status_code=404, detail=f"Zone '{zone_id}' not found")
 
 
 @router.get("/emergency-contacts")
@@ -79,6 +90,20 @@ async def get_emergency_contacts(zone_id: Optional[str] = None):
                         "type": "local_emergency",
                         "distance": es.get("distance"),
                     }
+
+        # Fallback to static zone data for emergency station
+        if not zone_contact:
+            for z in STATIC_ZONES:
+                if z["id"] == zone_id:
+                    es = z.get("emergency_station", {})
+                    if es:
+                        zone_contact = {
+                            "name": es.get("name"),
+                            "number": es.get("contact_number"),
+                            "type": "local_emergency",
+                            "distance": es.get("distance"),
+                        }
+                    break
 
     return {
         "national": national_contacts,
