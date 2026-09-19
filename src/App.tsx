@@ -105,6 +105,16 @@ const NER_BOUNDS: L.LatLngBoundsExpression = [
   [28.8, 97.8],
 ]
 
+// ─── CARTO Basemap tile URLs ──────────────────────────────────────────────────
+// Key is injected via VITE_CARTO_API_KEY env var — never hardcoded in source.
+const CARTO_KEY: string = import.meta.env.VITE_CARTO_API_KEY ?? ""
+const CARTO_KEY_PARAM = CARTO_KEY ? `?key=${CARTO_KEY}` : ""
+
+const TILE_STREET = `https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png${CARTO_KEY_PARAM}`
+const TILE_SATELLITE = `https://{s}.basemaps.cartocdn.com/rastertiles/satellite/{z}/{x}/{y}{r}.png${CARTO_KEY_PARAM}`
+const TILE_ATTRIBUTION = '\u0026copy; \u003ca href="https://www.openstreetmap.org/copyright"\u003eOpenStreetMap\u003c/a\u003e \u0026copy; \u003ca href="https://carto.com/attributions"\u003eCARTO\u003c/a\u003e'
+
+
 // ─── Monitoring zone data — 18 zones across 8 NER states ─────────────────────
 
 const INITIAL_ZONES: LandslideZone[] = [
@@ -522,6 +532,7 @@ function ZoneMap({
   onSelect: (id: string) => void
 }) {
   const selected = zones.find(z => z.id === selectedId) ?? null
+  const [basemap, setBasemap] = useState<"street" | "satellite">("street")
 
   return (
     <div className="relative w-full h-full">
@@ -533,8 +544,9 @@ function ZoneMap({
         attributionControl={true}
       >
         <TileLayer
-          url="https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png"
-          attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/attributions">CARTO</a>'
+          key={basemap}
+          url={basemap === "satellite" ? TILE_SATELLITE : TILE_STREET}
+          attribution={TILE_ATTRIBUTION}
           subdomains="abcd"
           maxZoom={19}
         />
@@ -558,6 +570,32 @@ function ZoneMap({
 
         <MapController target={selected} />
       </MapContainer>
+
+      {/* Basemap toggle — top-right corner of map */}
+      <div style={{
+        position: "absolute", top: 10, right: 10, zIndex: 400,
+        display: "flex", borderRadius: 6, overflow: "hidden",
+        boxShadow: "0 2px 8px rgba(0,0,0,0.20)",
+        border: "1px solid rgba(0,0,0,0.15)",
+      }}>
+        {(["street", "satellite"] as const).map(mode => (
+          <button
+            key={mode}
+            onClick={() => setBasemap(mode)}
+            title={mode === "street" ? "Street map" : "Satellite imagery"}
+            style={{
+              padding: "5px 12px",
+              fontSize: 11, fontWeight: 700, letterSpacing: "0.06em",
+              textTransform: "uppercase", cursor: "pointer", border: "none",
+              background: basemap === mode ? "#1B2E4B" : "rgba(255,255,255,0.95)",
+              color: basemap === mode ? "white" : "#374151",
+              transition: "background 150ms, color 150ms",
+            }}
+          >
+            {mode === "street" ? "🗺 Street" : "🛰 Satellite"}
+          </button>
+        ))}
+      </div>
 
       {/* Legend */}
       <div className="absolute bottom-8 left-3" style={{ zIndex: 400, pointerEvents: "none" }}>
