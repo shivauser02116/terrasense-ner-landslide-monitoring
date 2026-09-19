@@ -1,0 +1,10 @@
+{
+  "description": "Empowering disaster incident commanders in rural Karnataka, this interactive dashboard provides real-time risk assessments and evacuation planning for landslides.",
+  "robots": {
+    "index": false
+  },
+  "accessibility": {
+    "addBypassLinks": false,
+    "ignoreReducedMotion": false
+  }
+}
