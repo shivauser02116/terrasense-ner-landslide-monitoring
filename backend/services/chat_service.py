@@ -138,7 +138,7 @@ def _gemini_response(message: str, language: str, zone_id: Optional[str]) -> str
     try:
         import google.generativeai as genai
         genai.configure(api_key=settings.gemini_api_key)
-        model = genai.GenerativeModel("gemini-2.0-flash")
+        model = genai.GenerativeModel("gemini-flash-latest")
 
         zone_context = _get_zone_context(zone_id) if zone_id else ""
         lang_instruction = "Respond in Kannada (Kannada script)." if language == "kn" else "Respond in English."
