@@ -64,43 +64,67 @@ FALLBACK_RESPONSES = {
 
 
 def _get_zone_context(zone_id: str) -> str:
-    """Fetch zone data from Firestore to ground the LLM response."""
+    """Fetch zone data to ground the LLM response.
+    Tries Firestore first; falls back to static in-memory zone dataset."""
+    if not zone_id:
+        return ""
+
+    # Try Firestore first
     db = get_db()
-    if not db or not zone_id:
-        return ""
+    if db:
+        try:
+            doc = db.collection("monitoring_zones").document(zone_id).get()
+            if doc.exists:
+                data = doc.to_dict()
+                pred_docs = (
+                    db.collection("predictions")
+                    .where("zone_id", "==", zone_id)
+                    .order_by("prediction_timestamp", direction="DESCENDING")
+                    .limit(1)
+                    .stream()
+                )
+                pred_list = list(pred_docs)
+                pred_str = ""
+                if pred_list:
+                    p = pred_list[0].to_dict()
+                    pred_str = (
+                        f"Latest prediction: Risk score {p.get('risk_score')}/100, "
+                        f"Level: {p.get('risk_level')}, 24h probability: {p.get('probability_24h')}%"
+                    )
+                return (
+                    f"Zone: {data.get('name')} ({data.get('state')})\n"
+                    f"Current risk level: {data.get('current_risk_level')}\n"
+                    f"Rainfall: {data.get('rainfall_mm')} mm/24h\n"
+                    f"Soil moisture: {data.get('soil_moisture_pct')}%\n"
+                    f"Slope angle: {data.get('slope_angle_deg')}°\n"
+                    f"Vegetation cover: {data.get('vegetation_cover_pct')}%\n"
+                    f"Historical slides (5yr): {data.get('historical_slides')}\n"
+                    f"{pred_str}"
+                )
+        except Exception as e:
+            print(f"[Chat] Firestore zone context fetch failed: {e}")
+
+    # Fallback: use static in-memory zone dataset (available without Firebase)
     try:
-        doc = db.collection("monitoring_zones").document(zone_id).get()
-        if not doc.exists:
-            return ""
-        data = doc.to_dict()
-        pred_docs = (
-            db.collection("predictions")
-            .where("zone_id", "==", zone_id)
-            .order_by("prediction_timestamp", direction="DESCENDING")
-            .limit(1)
-            .stream()
-        )
-        pred_list = list(pred_docs)
-        pred_str = ""
-        if pred_list:
-            p = pred_list[0].to_dict()
-            pred_str = (
-                f"Latest prediction: Risk score {p.get('risk_score')}/100, "
-                f"Level: {p.get('risk_level')}, 24h probability: {p.get('probability_24h')}%"
-            )
-        return (
-            f"Zone: {data.get('name')} ({data.get('state')})\n"
-            f"Current risk level: {data.get('current_risk_level')}\n"
-            f"Rainfall: {data.get('rainfall_mm')} mm/24h\n"
-            f"Soil moisture: {data.get('soil_moisture_pct')}%\n"
-            f"Slope angle: {data.get('slope_angle_deg')}°\n"
-            f"Vegetation cover: {data.get('vegetation_cover_pct')}%\n"
-            f"Historical slides (5yr): {data.get('historical_slides')}\n"
-            f"{pred_str}"
-        )
+        from zone_data import ZONES as STATIC_ZONES
+        for z in STATIC_ZONES:
+            if z.get("id") == zone_id:
+                return (
+                    f"Zone: {z.get('name')} ({z.get('state')})\n"
+                    f"District: {z.get('district')}\n"
+                    f"Current risk level: {z.get('current_risk_level')}\n"
+                    f"AI Risk Score: {z.get('ai_risk_score')}/100\n"
+                    f"Rainfall: {z.get('rainfall_mm')} mm/24h\n"
+                    f"Soil moisture: {z.get('soil_moisture_pct')}%\n"
+                    f"Slope angle: {z.get('slope_angle_deg')}°\n"
+                    f"Vegetation cover: {z.get('vegetation_cover_pct')}%\n"
+                    f"Historical slides (5yr): {z.get('historical_slides')}\n"
+                    f"Note: This is static prototype data, not live sensor readings."
+                )
     except Exception as e:
-        print(f"[Chat] Zone context fetch failed: {e}")
-        return ""
+        print(f"[Chat] Static zone context fetch failed: {e}")
+
+    return ""
 
 
 def get_response(message: str, language: str = "en", zone_id: Optional[str] = None) -> str:
