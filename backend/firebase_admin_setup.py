@@ -15,7 +15,7 @@ def init_firebase():
     if _app_initialized or firebase_admin._DEFAULT_APP_NAME in firebase_admin._apps:
         return
 
-    cred = None
+    sa_dict = None
 
     if settings.firebase_service_account_json:
         # Cloud deployment: base64-encoded JSON in env var
@@ -32,8 +32,9 @@ def init_firebase():
         )
         return
 
+    bucket_name = f"{sa_dict['project_id']}.appspot.com" if sa_dict and "project_id" in sa_dict else None
     firebase_admin.initialize_app(cred, {
-        "storageBucket": f"{sa_dict['project_id']}.appspot.com" if settings.firebase_service_account_json else None
+        "storageBucket": bucket_name
     })
     _app_initialized = True
 

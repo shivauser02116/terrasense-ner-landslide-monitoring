@@ -1,6 +1,5 @@
 import { useState, useRef } from "react"
 import { api } from "../lib/api"
-import { v4 as uuidv4 } from "crypto"
 
 const REPORT_TYPES = [
   { value: "landslide", label: "🏔 Active Landslide" },
@@ -48,13 +47,17 @@ export default function FieldReportModal({
     if (!reportType || !description || !lat || !lng) return
     setSubmitting(true)
 
+    const clientReportId = typeof window !== "undefined" && window.crypto?.randomUUID
+      ? window.crypto.randomUUID()
+      : `rep-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`
+
     const formData = new FormData()
     formData.append("zone_id", zoneId)
     formData.append("lat", lat)
     formData.append("lng", lng)
     formData.append("report_type", reportType)
     formData.append("description", description)
-    formData.append("report_id", crypto.randomUUID ? crypto.randomUUID() : Date.now().toString())
+    formData.append("report_id", clientReportId)
     files.forEach(f => formData.append("files", f))
 
     const res = await api.createFieldReport(formData)

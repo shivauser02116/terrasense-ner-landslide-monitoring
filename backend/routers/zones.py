@@ -1,3 +1,4 @@
+import copy
 from fastapi import APIRouter, HTTPException
 from typing import Optional
 
@@ -31,10 +32,10 @@ async def get_zones(state: Optional[str] = None):
             zones.sort(key=lambda z: RISK_ORDER.get(z.get("current_risk_level", "low"), 3))
             return {"zones": zones, "count": len(zones), "source": "firestore"}
 
-    # Fallback: serve static in-memory NER zone dataset
+    # Fallback: serve deepcopy of static in-memory NER zone dataset to isolate concurrent requests
     zones = []
     for z in STATIC_ZONES:
-        zone = dict(z)  # shallow copy so we don't mutate the source
+        zone = copy.deepcopy(z)
         if state and zone.get("state", "").lower() != state.lower():
             continue
         zones.append(zone)
@@ -57,7 +58,7 @@ async def get_zone(zone_id: str):
     # Fallback to static data
     for z in STATIC_ZONES:
         if z["id"] == zone_id:
-            return dict(z)
+            return copy.deepcopy(z)
 
     raise HTTPException(status_code=404, detail=f"Zone '{zone_id}' not found")
 

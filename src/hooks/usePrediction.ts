@@ -41,7 +41,14 @@ export function usePrediction(zone: {
     }
     run()
     return () => { cancelled = true }
-  }, [zone?.id])
+  }, [
+    zone?.id,
+    zone?.rainfallMm,
+    zone?.soilMoisturePercent,
+    zone?.slopeAngle,
+    zone?.vegetationCover,
+    zone?.historicalSlides,
+  ])
 
   return { prediction, loading }
 }
